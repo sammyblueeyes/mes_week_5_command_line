@@ -1,8 +1,7 @@
 #pragma once
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #include <stm32f4xx_hal.h>
@@ -21,8 +20,14 @@ extern "C"
 #define BUTTON_GPIO_PORT GPIOA
 #define BUTTON_IRQn EXTI0_IRQn
 
-void io_logging_init();
-void io_logging_write(const char* msg, size_t len);
+#define DBG_UART USART2
+#define DBG_UART_CLK_ENABLE() __HAL_RCC_USART2_CLK_ENABLE()
+#define DBG_UART_RX_GPIO_CLK_ENABLE() __HAL_RCC_GPIOA_CLK_ENABLE()
+#define DBG_UART_TX_GPIO_CLK_ENABLE() __HAL_RCC_GPIOA_CLK_ENABLE()
+#define DBG_UART_TX_PIN GPIO_PIN_2
+#define DBG_UART_TX_GPIO_PORT GPIOA
+#define DBG_UART_RX_PIN GPIO_PIN_3
+#define DBG_UART_RX_GPIO_PORT GPIOA
 
 #ifdef __cplusplus
 } // extern "C"
