@@ -14,6 +14,8 @@ void EXTI0_IRQHandler(void) { HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_0); }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin);
 
+#include <console.h>
+#include <consoleIo.h>
 } // extern "C"
 
 enum eLEDs {
@@ -51,6 +53,19 @@ void Init() {
   DBG_UART_RX_GPIO_CLK_ENABLE();
   DBG_UART_TX_GPIO_CLK_ENABLE();
   DBG_UART_CLK_ENABLE();
+
+  g_state.leds[LED_BLUE] = std::make_unique<LED>(LED_GPIO_PORT, BLUE_LED_PIN);
+  g_state.leds[LED_GREEN] = std::make_unique<LED>(LED_GPIO_PORT, GREEN_LED_PIN);
+  g_state.leds[LED_ORANGE] =
+      std::make_unique<LED>(LED_GPIO_PORT, ORANGE_LED_PIN);
+  g_state.leds[LED_RED] = std::make_unique<LED>(LED_GPIO_PORT, RED_LED_PIN);
+  g_state.button =
+      std::make_unique<Button>(BUTTON_GPIO_PORT, BUTTON_PIN, BUTTON_IRQn);
+  g_state.debug_uart =
+      std::make_unique<UART>(DBG_UART, DBG_UART_TX_PIN, DBG_UART_TX_GPIO_PORT,
+                             DBG_UART_RX_PIN, DBG_UART_RX_GPIO_PORT);
+
+  ConsoleInit();
 }
 
 class UARTLoggingBackend : public LoggingBackend {
@@ -64,17 +79,6 @@ public:
 int main(void) {
   Init();
 
-  g_state.leds[LED_BLUE] = std::make_unique<LED>(LED_GPIO_PORT, BLUE_LED_PIN);
-  g_state.leds[LED_GREEN] = std::make_unique<LED>(LED_GPIO_PORT, GREEN_LED_PIN);
-  g_state.leds[LED_ORANGE] =
-      std::make_unique<LED>(LED_GPIO_PORT, ORANGE_LED_PIN);
-  g_state.leds[LED_RED] = std::make_unique<LED>(LED_GPIO_PORT, RED_LED_PIN);
-  g_state.button =
-      std::make_unique<Button>(BUTTON_GPIO_PORT, BUTTON_PIN, BUTTON_IRQn);
-  g_state.debug_uart =
-      std::make_unique<UART>(DBG_UART, DBG_UART_TX_PIN, DBG_UART_TX_GPIO_PORT,
-                             DBG_UART_RX_PIN, DBG_UART_RX_GPIO_PORT);
-
   auto backend = std::make_unique<UARTLoggingBackend>();
   Logger logger("main", std::move(backend));
 
@@ -82,18 +86,17 @@ int main(void) {
   uint32_t blink_elapsed = 0;
 
   while (1) {
+    ConsoleProcess();
     if (g_state.button->GetState() == Button::PRESSED) {
       g_state.leds[cur_led]->TurnOff();
       blink_elapsed = BLINK_INTERVAL_MS;
       g_state.leds[LED_RED]->TurnOn();
-      logger.Log(LOG_LEVEL_DEBUG, "Button Pressed\r\n");
     } else {
       g_state.leds[LED_RED]->TurnOff();
       blink_elapsed += LOOP_INTERVAL_MS;
       if (blink_elapsed >= BLINK_INTERVAL_MS) {
         blink_elapsed = 0;
         g_state.leds[cur_led]->Blink();
-        logger.Log(LOG_LEVEL_DEBUG, "Toggling\r\n");
       }
     }
     HAL_Delay(LOOP_INTERVAL_MS);
@@ -109,4 +112,26 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
   case IT_MAX:
     break;
   }
+}
+
+eConsoleError ConsoleIoInit(void) { return CONSOLE_SUCCESS; }
+
+eConsoleError ConsoleIoReceive(uint8_t *buffer, const uint32_t bufferLength,
+                               uint32_t *readLength) {
+  uint8_t read;
+  *readLength = 0;
+  while (*readLength < bufferLength && g_state.debug_uart->ReadChar(&read)) {
+    g_state.leds[LED_GREEN]->Blink();
+
+    buffer[*readLength] = read;
+    g_state.debug_uart->Write((const char *)&read, 1);
+
+    (*readLength)++;
+  }
+  return CONSOLE_SUCCESS;
+}
+
+eConsoleError ConsoleIoSendString(const char *buffer) {
+  g_state.debug_uart->Write(buffer, strlen(buffer));
+  return CONSOLE_SUCCESS;
 }

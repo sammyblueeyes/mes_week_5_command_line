@@ -25,11 +25,20 @@ UART::UART(USART_TypeDef *uart, uint32_t uart_tx_pin,
   m_uart_handle.Init.StopBits = UART_STOPBITS_1;
   m_uart_handle.Init.Parity = UART_PARITY_NONE;
   m_uart_handle.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  m_uart_handle.Init.Mode = UART_MODE_TX;
+  m_uart_handle.Init.Mode = UART_MODE_TX_RX;
   m_uart_handle.Init.OverSampling = UART_OVERSAMPLING_16;
   HAL_UART_Init(&m_uart_handle);
 }
 
 void UART::Write(const char *msg, size_t len) {
-  HAL_UART_Transmit(&m_uart_handle, (uint8_t *)msg, strlen(msg), HAL_MAX_DELAY);
+  HAL_UART_Transmit(&m_uart_handle, (uint8_t *)msg, len, HAL_MAX_DELAY);
+}
+
+bool UART::ReadChar(uint8_t *buffer) {
+  uint8_t read[2] = {0, 0};
+  if (HAL_UART_Receive(&m_uart_handle, read, 1, 1) == HAL_OK) {
+    *buffer = read[0];
+    return true;
+  }
+  return false;
 }

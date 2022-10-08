@@ -19,4 +19,5 @@ public:
        GPIO_TypeDef *uart_rx_gpio_port);
 
   void Write(const char *msg, size_t len);
+  bool ReadChar(uint8_t *buffer);
 };
